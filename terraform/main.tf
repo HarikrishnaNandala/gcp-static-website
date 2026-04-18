@@ -33,7 +33,7 @@ resource "google_storage_bucket" "gcp-static-website_492920" {
     }
 }
 resource "google_storage_bucket_iam_member" "public_read" {
-    bucket = google_storage_bucket.website.name
+    bucket = google_storage_bucket.gcp-static-website_492920.name
     role = "roles/storage.objectViewer"
     member = "allUsers"
 }
@@ -52,7 +52,7 @@ resource "google_compute_global_address" "website_ip" {
 
 resource "google_compute_backend_bucket" "website_backend" {
   name        = "website-backend-bucket"
-  bucket_name = google_storage_bucket.website.name
+  bucket_name = google_storage_bucket.gcp-static-website_492920.name
   enable_cdn  = true
 
   cdn_policy {
