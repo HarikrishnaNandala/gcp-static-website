@@ -12,7 +12,7 @@ provider "google" {
   region = var.region
 }
 
-resource "google_storage_bucket" "website" {
+resource "google_storage_bucket" "gcp-static-website_492920" {
     name = var.bucket_name
     location = var.website_location
     storage_class = "STANDARD"
