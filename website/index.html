@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My GCP Static Website</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 48px;
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            margin-bottom: 24px;
+            letter-spacing: 1px;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            color: #2d3748;
+            margin-bottom: 16px;
+        }
+
+        p {
+            color: #718096;
+            font-size: 1.1rem;
+            line-height: 1.7;
+            margin-bottom: 12px;
+        }
+
+        .stack {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 32px;
+        }
+
+        .tag {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            color: #4a5568;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .footer {
+            margin-top: 32px;
+            font-size: 13px;
+            color: #a0aec0;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="badge">🚀 LIVE ON GCP</div>
+        <h1>My Static Website</h1>
+        <p>Hosted on <strong>Google Cloud Storage</strong></p>
+        <p>Served globally via <strong>Cloud CDN + Load Balancer</strong></p>
+        <p>Deployed automatically with <strong>GitHub Actions</strong></p>
+        <p>Infrastructure managed by <strong>Terraform</strong></p>
+
+        <div class="stack">
+            <span class="tag">☁️ GCS</span>
+            <span class="tag">⚡ Cloud CDN</span>
+            <span class="tag">🔧 Terraform</span>
+            <span class="tag">⚙️ GitHub Actions</span>
+            <span class="tag">🔐 WIF Auth</span>
+        </div>
+
+        <div class="footer">
+            Project 5.1 — Phase 5 Real Projects
+        </div>
+    </div>
+</body>
+</html>

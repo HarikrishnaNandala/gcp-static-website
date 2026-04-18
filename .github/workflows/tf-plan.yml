@@ -1,0 +1,117 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+
+permissions:
+  contents: read
+  id-token: write        # Required for WIF
+  pull-requests: write   # Required to post PR comments
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      # ----------------------------------------
+      # 1. Checkout code
+      # ----------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ----------------------------------------
+      # 2. Authenticate to GCP via WIF
+      # ----------------------------------------
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      # ----------------------------------------
+      # 3. Set up Terraform
+      # ----------------------------------------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.8
+
+      # ----------------------------------------
+      # 4. Terraform Init
+      # ----------------------------------------
+      - name: Terraform Init
+        run: terraform init
+
+      # ----------------------------------------
+      # 5. Terraform Format Check
+      # ----------------------------------------
+      - name: Terraform Format Check
+        run: terraform fmt -check
+        continue-on-error: true
+
+      # ----------------------------------------
+      # 6. Terraform Validate
+      # ----------------------------------------
+      - name: Terraform Validate
+        run: terraform validate
+
+      # ----------------------------------------
+      # 7. Terraform Plan
+      # ----------------------------------------
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan \
+            -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+            -var="bucket_name=${{ secrets.TF_BUCKET_NAME }}" \
+            -no-color \
+            -out=tfplan 2>&1 | tee plan_output.txt
+        continue-on-error: true
+
+      # ----------------------------------------
+      # 8. Post Plan Output as PR Comment
+      # ----------------------------------------
+      - name: Post Plan to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('terraform/plan_output.txt', 'utf8');
+            const maxLength = 65000;
+            const truncated = plan.length > maxLength
+              ? plan.substring(0, maxLength) + '\n\n... output truncated ...'
+              : plan;
+
+            const output = `#### 🔧 Terraform Plan - Project 5.1
+            <details><summary>Click to expand plan output</summary>
+
+            \`\`\`hcl
+            ${truncated}
+            \`\`\`
+            </details>
+
+            **Plan Status:** \`${{ steps.plan.outcome }}\`
+            *Triggered by: @${{ github.actor }} on PR #${{ github.event.pull_request.number }}*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+      # ----------------------------------------
+      # 9. Fail if plan failed
+      # ----------------------------------------
+      - name: Check Plan Status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1

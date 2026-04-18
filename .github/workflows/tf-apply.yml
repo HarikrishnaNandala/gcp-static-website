@@ -1,0 +1,147 @@
+name: Terraform Apply & Deploy Site
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+      - 'website/**'
+
+permissions:
+  contents: read
+  id-token: write    # Required for WIF
+
+jobs:
+  # ============================================
+  # JOB 1 — Terraform Apply
+  # ============================================
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    outputs:
+      bucket_name: ${{ steps.tf_outputs.outputs.bucket_name }}
+      website_url: ${{ steps.tf_outputs.outputs.website_url }}
+      lb_ip: ${{ steps.tf_outputs.outputs.lb_ip }}
+
+    steps:
+      # ----------------------------------------
+      # 1. Checkout code
+      # ----------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ----------------------------------------
+      # 2. Authenticate to GCP via WIF
+      # ----------------------------------------
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      # ----------------------------------------
+      # 3. Set up Terraform
+      # ----------------------------------------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.8
+          terraform_wrapper: false
+
+      # ----------------------------------------
+      # 4. Terraform Init
+      # ----------------------------------------
+      - name: Terraform Init
+        run: terraform init
+
+      # ----------------------------------------
+      # 5. Terraform Validate
+      # ----------------------------------------
+      - name: Terraform Validate
+        run: terraform validate
+
+      # ----------------------------------------
+      # 6. Terraform Apply
+      # ----------------------------------------
+      - name: Terraform Apply
+        run: |
+          terraform apply \
+            -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+            -var="bucket_name=${{ secrets.TF_BUCKET_NAME }}" \
+            -auto-approve \
+            -no-color
+
+      # ----------------------------------------
+      # 7. Capture Terraform Outputs
+      # ----------------------------------------
+      - name: Capture Terraform Outputs
+        id: tf_outputs
+        run: |
+          echo "bucket_name=$(terraform output -raw bucket_name)" >> $GITHUB_OUTPUT
+          echo "website_url=$(terraform output -raw website_url)" >> $GITHUB_OUTPUT
+          echo "lb_ip=$(terraform output -raw load_balancer_ip)" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # JOB 2 — Deploy Website Files
+  # ============================================
+  deploy-website:
+    name: Deploy Website to GCS
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+
+    steps:
+      # ----------------------------------------
+      # 1. Checkout code
+      # ----------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ----------------------------------------
+      # 2. Authenticate to GCP via WIF
+      # ----------------------------------------
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      # ----------------------------------------
+      # 3. Set up gcloud CLI
+      # ----------------------------------------
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # ----------------------------------------
+      # 4. Deploy HTML files to GCS bucket
+      # ----------------------------------------
+      - name: Deploy Website Files
+        run: |
+          gsutil -m rsync -r -d website/ gs://${{ needs.terraform-apply.outputs.bucket_name }}/
+
+      # ----------------------------------------
+      # 5. Set cache control headers on files
+      # ----------------------------------------
+      - name: Set Cache Control Headers
+        run: |
+          gsutil -m setmeta \
+            -h "Cache-Control:public, max-age=3600" \
+            gs://${{ needs.terraform-apply.outputs.bucket_name }}/**
+
+      # ----------------------------------------
+      # 6. Print live URLs
+      # ----------------------------------------
+      - name: Print Live Site URLs
+        run: |
+          echo "=========================================="
+          echo "✅ Website deployed successfully!"
+          echo "=========================================="
+          echo "🪣 Bucket     : gs://${{ needs.terraform-apply.outputs.bucket_name }}"
+          echo "🌐 CDN URL    : http://${{ needs.terraform-apply.outputs.lb_ip }}"
+          echo "📦 Direct URL : ${{ needs.terraform-apply.outputs.website_url }}"
+          echo "=========================================="
